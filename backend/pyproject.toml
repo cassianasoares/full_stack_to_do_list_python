@@ -1,0 +1,13 @@
+[project]
+name = "todo-list-api"
+version = "1.0.0"
+description = "API de lista de tarefas em Django"
+authors = [
+    { name = "Cassiana", linkedin = "https://www.linkedin.com/in/cassiana-soares/" }
+]
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
