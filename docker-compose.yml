@@ -1,25 +1,18 @@
-version: "3.8"
-
 services:
   web:
     build: .
     container_name: todo_list_api
     ports:
       - "8000:8000"
-    secrets:
-      - django_secret_key
     environment:
       DJANGO_SETTINGS_MODULE: config.settings
-      DEBUG: ${DEBUG:-False}
+      DEBUG: ${DEBUG:-True}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-your_default_secret_key}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
     volumes:
-      - .:/app
-      - sqlite_data:/app/db.sqlite3
+      - ./backend:/app
+      - sqlite_data:/app/db
     restart: unless-stopped
-
-secrets:
-  django_secret_key:
-    file: ./django_secret_key.txt
 
 volumes:
   sqlite_data:
