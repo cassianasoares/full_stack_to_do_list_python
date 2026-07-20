@@ -34,7 +34,7 @@ def user_payload():
         "role": "Dev",
         "email": "lucas@example.com",
         "password": "senha_forte_123",
-        "password_confirm": "senha_forte_123",
+        "password_match": "senha_forte_123",
     }
 
 @pytest.fixture

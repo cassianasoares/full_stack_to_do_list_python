@@ -20,7 +20,7 @@ def test_register_creates_user_and_returns_201(api_client: APIClient, register_u
         'role': 'Gerente',
         'email': 'carlos@example.com',
         'password': 'senha_forte_123',
-        'password_confirm': 'senha_forte_123',
+        'password_match': 'senha_forte_123',
     }
 
     response = api_client.post(register_url, payload, format='json')
@@ -37,7 +37,7 @@ def test_register_without_role_succeeds(api_client: APIClient, register_url: str
         'username': 'carlossouza2',
         'email': 'carlos_sem_role@example.com',
         'password': 'senha_forte_123',
-        'password_confirm': 'senha_forte_123',
+        'password_match': 'senha_forte_123',
     }
 
     response = api_client.post(register_url, payload, format='json')
@@ -56,7 +56,7 @@ def test_register_returns_user_data_without_password(api_client: APIClient, regi
         'role': 'Analista',
         'email': 'ana@example.com',
         'password': 'outra_senha_123',
-        'password_confirm': 'outra_senha_123',
+        'password_match': 'outra_senha_123',
     }
 
     response = api_client.post(register_url, payload, format='json')
@@ -80,7 +80,7 @@ def test_register_rejects_duplicate_email(api_client: APIClient, register_url: s
             'role': 'Dev',
             'email': existing_user.email,  # mesmo email
             'password': 'outra_senha_123',
-            'password_confirm': 'outra_senha_123',
+            'password_match': 'outra_senha_123',
         },
         format='json',
     )
@@ -105,7 +105,7 @@ def test_register_rejects_weak_password(api_client: APIClient, register_url: str
             'role': 'Dev',
             'email': 'pedro@example.com',
             'password': '123',
-            'password_confirm': '123',
+            'password_match': '123',
         },
         format='json',
     )

@@ -1,0 +1,9 @@
+exclude_dirs:
+  - "venv"
+  - ".venv"
+  - "migrations"
+  - "accounts/tests"
+
+skips:
+  - "B101"
+  - "B106"

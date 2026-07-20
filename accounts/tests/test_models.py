@@ -5,6 +5,7 @@ import pytest
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
+TEST_PASSWORD = 'senha12345'  # nosec B105
 
 
 @pytest.mark.django_db
@@ -15,7 +16,7 @@ def test_create_user_with_required_fields():
         username='joaosilva',
         role='Desenvolvedor',
         email='joao@example.com',
-        password='senha12345',
+        password=TEST_PASSWORD,
     )
 
     assert user.first_name == 'João'
@@ -23,7 +24,7 @@ def test_create_user_with_required_fields():
     assert user.username == 'joaosilva'
     assert user.role == 'Desenvolvedor'
     assert user.email == 'joao@example.com'
-    assert user.check_password('senha12345')
+    assert user.check_password(TEST_PASSWORD)
     assert not user.check_password('senha_errada')
 
 
@@ -34,7 +35,7 @@ def test_create_user_without_role():
         last_name='Silva',
         username='joaosilva2',
         email='joao_sem_role@example.com',
-        password='senha12345',
+        password=TEST_PASSWORD,
     )
 
     assert user.first_name == 'João'
@@ -42,7 +43,7 @@ def test_create_user_without_role():
     assert user.username == 'joaosilva2'
     assert user.role is None or user.role == ''
     assert user.email == 'joao_sem_role@example.com'
-    assert user.check_password('senha12345')
+    assert user.check_password(TEST_PASSWORD)
 
 
 @pytest.mark.django_db
@@ -53,7 +54,7 @@ def test_email_must_be_unique():
         username='joaosilva3',
         role='Dev',
         email='duplicado@example.com',
-        password='senha12345',
+        password=TEST_PASSWORD,
     )
 
     with pytest.raises(Exception):
@@ -79,5 +80,5 @@ def test_password_is_hashed_not_stored_in_plain_text():
     )
     user.refresh_from_db()
 
-    assert user.password != 'minha_senha_secreta'
+    assert user.password != 'minha_senha_secreta'  # nosec B105
     assert user.password.startswith('pbkdf2_') or user.password.startswith('argon2$')

@@ -9,7 +9,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / '.env')
 
-SECRET_KEY_PATH = "/run/secrets/django_secret_key"
+SECRET_KEY_PATH = "/run/secrets/django_secret_key"  # nosec B105
 if os.path.exists(SECRET_KEY_PATH):
     with open(SECRET_KEY_PATH) as f:
         SECRET_KEY = f.read().strip()

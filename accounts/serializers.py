@@ -15,44 +15,44 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ('id',)
 
 
-class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(
-        write_only=True,
-        required=True,
-        style={'input_type': 'password'},
-        min_length=8,
-    )
-    password_confirm = serializers.CharField(
-        write_only=True,
-        required=True,
-        style={'input_type': 'password'},
-        min_length=8,
-    )
-
-    class Meta:
-        model = User
-        fields = ('first_name', 'last_name', 'username', 'role', 'email', 'password', 'password_confirm')
-
-    def validate_email(self, value):
-        if User.objects.filter(email__iexact=value).exists():
-            raise serializers.ValidationError('Email já registrado.')
-        return value
-
-    def validate(self, data):
-        if data['password'] != data['password_confirm']:
-            raise serializers.ValidationError({'password_confirm': 'As senhas não coincidem.'})
-        return data
-
-    def create(self, validated_data):
-        validated_data.pop('password_confirm')  # não salva no banco
-        return User.objects.create_user(
-            email=validated_data['email'],
-            password=validated_data['password'],
-            first_name=validated_data['first_name'],
-            last_name=validated_data['last_name'],
-            username=validated_data['username'],
-            role=validated_data.get('role'),
+    class RegisterSerializer(serializers.ModelSerializer):
+        password = serializers.CharField(
+            write_only=True,
+            required=True,
+            style={'input_type': 'password'},
+            min_length=8,
         )
+        password_match = serializers.CharField(
+            write_only=True,
+            required=True,
+            style={'input_type': 'password'},
+            min_length=8,
+        )
+
+        class Meta:
+            model = User
+            fields = ('first_name', 'last_name', 'username', 'role', 'email', 'password', 'password_match')
+
+        def validate_email(self, value):
+            if User.objects.filter(email__iexact=value).exists():
+                raise serializers.ValidationError('Email already registered.')
+            return value
+
+        def validate(self, data):
+            if data['password'] != data['password_match']:
+                raise serializers.ValidationError({'password_match': 'The passwords do not match.'})
+            return data
+
+        def create(self, validated_data):
+            validated_data.pop('password_match')
+            return User.objects.create_user(
+                email=validated_data['email'],
+                password=validated_data['password'],
+                first_name=validated_data['first_name'],
+                last_name=validated_data['last_name'],
+                username=validated_data['username'],
+                role=validated_data.get('role'),
+            )
 
     
 
