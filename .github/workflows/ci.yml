@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   pull_request:
-    branches: ["*"]
+    branches: ["staging"]
   push:
     branches: ["main"]
 
@@ -27,7 +27,7 @@ jobs:
           pip install -r requirements.txt -r requirements-dev.txt
 
       - name: Run tests
-        run: DJANGO_SETTINGS_MODULE=config.settings_ci python manage.py test
+        run: DJANGO_SETTINGS_MODULE=backend/config.settings_ci python manage.py test
 
       - name: Security check with Bandit
         run: bandit -c bandit.yaml -r .
