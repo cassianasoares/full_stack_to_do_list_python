@@ -113,8 +113,8 @@ SIMPLE_JWT = {
 }
 
 # Cookie names used to store JWT tokens (set HttpOnly by the auth views).
-ACCESS_TOKEN_COOKIE = "access_token"
-REFRESH_TOKEN_COOKIE = "refresh_token"
+ACCESS_TOKEN_COOKIE = "access_token"  # nosec B105
+REFRESH_TOKEN_COOKIE = "refresh_token"  # nosec B105
 ACCESS_TOKEN_COOKIE_MAX_AGE = 5 * 60
 REFRESH_TOKEN_COOKIE_MAX_AGE = 24 * 60 * 60
 JWT_COOKIE_SECURE = not DEBUG
