@@ -1,18 +1,33 @@
 services:
   web:
-    build: .
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: todo_list_api
-    ports:
-      - "8000:8000"
     environment:
       DJANGO_SETTINGS_MODULE: config.settings
       DEBUG: ${DEBUG:-True}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-your_default_secret_key}
-      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,web}
     volumes:
       - ./backend:/app
       - sqlite_data:/app/db
+      - django_static:/app/staticfiles
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: todo_list_frontend
+    ports:
+      - "8000:80"
+    depends_on:
+      - web
+    volumes:
+      - django_static:/app/staticfiles
     restart: unless-stopped
 
 volumes:
   sqlite_data:
+  django_static:

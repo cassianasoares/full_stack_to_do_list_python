@@ -7,19 +7,23 @@ on:
     branches: ["main"]
 
 jobs:
-  test:
+  backend-test:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: backend
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements-dev.txt
 
       - name: Install dependencies
         run: |
@@ -32,49 +36,141 @@ jobs:
       - name: Security check with Bandit
         run: bandit -c bandit.yaml -r .
 
-  docker-security:
+  frontend-verify:
     runs-on: ubuntu-latest
-    needs: test
+    defaults:
+      run:
+        working-directory: frontend
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Build frontend
+        run: npm run build
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-verify]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Create environmental variables for Docker
+        run: cp backend/.env.example backend/.env
+
+      - name: Start services with Docker Compose
+        run: docker compose up -d
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: e2e/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r e2e/requirements.txt
+
+      - name: Wait for services to be ready
+        run: |
+          for i in {1..30}; do
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/login | grep -q "200"; then
+              echo "Services are ready!"
+              break
+            fi
+            echo "Waiting for services..."
+            sleep 1
+          done
+
+      - name: Run E2E tests
+        run: |
+          cd e2e
+          pytest
+
+      - name: Stop services
+        if: always()
+        run: docker compose down
+
+  docker-security:
+    runs-on: ubuntu-latest
+    needs: [backend-test, frontend-verify]
+    strategy:
+      matrix:
+        include:
+          - service: backend
+            image_tag: todo_list_api:latest
+            build_args: backend
+          - service: frontend
+            image_tag: todo_list_frontend:latest
+            build_args: -f frontend/Dockerfile .
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
 
       - name: Build Docker image
-        run: docker build -t todo_list_api:latest .
+        run: docker build -t ${{ matrix.image_tag }} ${{ matrix.build_args }}
 
       - name: Vulnerability scan with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: todo_list_api:latest
+          image-ref: ${{ matrix.image_tag }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
 
   deploy:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    needs: docker-security
+    needs: [docker-security, e2e-tests]
+    strategy:
+      matrix:
+        include:
+          - service: backend
+            image_name: todo_list_api
+            build_args: backend
+          - service: frontend
+            image_name: todo_list_frontend
+            build_args: -f frontend/Dockerfile .
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - name: Read version from pyproject.toml
+      - name: Read version
         id: version
         run: |
-          VERSION=$(python -c "import tomllib; print(tomllib.load(open('backend/pyproject.toml','rb'))['project']['version'])")
+          if [ "${{ matrix.service }}" = "backend" ]; then
+            VERSION=$(python -c "import tomllib; print(tomllib.load(open('backend/pyproject.toml','rb'))['project']['version'])")
+          else
+            VERSION=$(jq -r .version frontend/package.json)
+          fi
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push Docker image with version and latest
         run: |
-          IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/todo_list_api
+          IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image_name }}
 
           # Build com a versão
-          docker build -t $IMAGE_NAME:${{ env.VERSION }} .
+          docker build -t $IMAGE_NAME:${{ env.VERSION }} ${{ matrix.build_args }}
 
           # Tag também como latest
           docker tag $IMAGE_NAME:${{ env.VERSION }} $IMAGE_NAME:latest

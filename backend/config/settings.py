@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework_simplejwt.token_blacklist',
     'accounts',
 ]
 
@@ -91,6 +92,7 @@ USE_TZ = True
 
 # Static files
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Custom user model
 AUTH_USER_MODEL = 'accounts.User'
@@ -106,7 +108,18 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ALGORITHM": "HS256",
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
 }
+
+# Cookie names used to store JWT tokens (set HttpOnly by the auth views).
+ACCESS_TOKEN_COOKIE = "access_token"
+REFRESH_TOKEN_COOKIE = "refresh_token"
+ACCESS_TOKEN_COOKIE_MAX_AGE = 5 * 60
+REFRESH_TOKEN_COOKIE_MAX_AGE = 24 * 60 * 60
+JWT_COOKIE_SECURE = not DEBUG
+JWT_COOKIE_SAMESITE = "Lax"
+JWT_COOKIE_PATH = "/"
 
 
 AUTHENTICATION_BACKENDS = [

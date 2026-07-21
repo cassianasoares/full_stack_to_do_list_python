@@ -13,20 +13,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN useradd -m django
 
 # Copia dependências e instala
-COPY backend/requirements.txt /app/
+COPY requirements.txt /app/
 RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 # Copia o código
-COPY backend/ /app/
+COPY . /app/
 
 # Cria diretório do banco e ajusta permissões
-RUN mkdir -p /app/db && chown -R django:django /app/db
+RUN mkdir -p /app/db /app/staticfiles && \
+    chown -R django:django /app/db /app/staticfiles
 
-# O código pode ser lido por qualquer usuário, mas só o banco precisa de escrita
-RUN chmod -R 755 /app && chmod -R 770 /app/db
+RUN chmod -R 755 /app && chmod -R 770 /app/db /app/staticfiles
 
 USER django
 
 EXPOSE 8000
 
-CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
+# Roda migrate, coleta estáticos e inicia o gunicorn
+CMD ["sh", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:8000"]
