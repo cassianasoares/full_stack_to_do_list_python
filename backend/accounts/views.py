@@ -1,6 +1,6 @@
 """Views for the accounts app."""
 from django.conf import settings
-from rest_framework import status
+from rest_framework import status, viewsets, filters
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -8,12 +8,18 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework.pagination import PageNumberPagination
+from django_filters.rest_framework import DjangoFilterBackend
+from .permissions import IsResponsible
 
 from .serializers import (
+    CategorySerializer,
     LoginSerializer,
     RegisterSerializer,
     UserSerializer,
+    TaskSerializer,
 )
+from .models import Category, Task, User
 
 
 def _set_auth_cookies(response, access_token: str, refresh_token: str) -> None:
@@ -50,6 +56,14 @@ def _clear_auth_cookies(response) -> None:
             samesite=settings.JWT_COOKIE_SAMESITE,
         )
 
+class UserViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Allows listing and retrieving details of existing users.
+    Read-only (list/retrieve).
+    """
+    queryset = User.objects.all().order_by("id")
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
 
 class RegisterView(APIView):
     """POST /api/auth/register/ — create new user."""
@@ -108,21 +122,65 @@ class LogoutView(APIView):
 
 
 class MeView(APIView):
-    """GET /api/auth/me/ — return the currently authenticated user.
-
-    Authentication is performed by the simplejwt cookie auth class, which
-    reads the access token from the `Authorization` header. To accept the
-    access token from the HttpOnly cookie, the view wraps the request and
-    exposes the cookie value via the `HTTP_AUTHORIZATION` header.
-    """
+    """GET /api/auth/me/ — return the currently authenticated user."""
 
     permission_classes = [IsAuthenticated]
 
-    def initial(self, request, *args, **kwargs):
-        access = request.COOKIES.get(settings.ACCESS_TOKEN_COOKIE)
-        if access and 'HTTP_AUTHORIZATION' not in request.META:
-            request.META['HTTP_AUTHORIZATION'] = f'Bearer {access}'
-        super().initial(request, *args, **kwargs)
-
     def get(self, request):
-        return Response(UserSerializer(request.user).data)
+        user_data = UserSerializer(request.user).data
+
+        tasks_qs = Task.objects.filter(responsible=request.user)
+
+        category_id = request.query_params.get("category")
+        if category_id:
+            tasks_qs = tasks_qs.filter(category_id=category_id)
+
+        completed = request.query_params.get("completed")
+        if completed is not None:
+            tasks_qs = tasks_qs.filter(completed=completed.lower() in ["true", "1"])
+
+        paginator = PageNumberPagination()
+        paginator.page_size = 10
+        paginated_tasks = paginator.paginate_queryset(tasks_qs, request)
+
+        tasks_data = TaskSerializer(paginated_tasks, many=True).data
+
+        return paginator.get_paginated_response({
+            "user": user_data,
+            "tasks": tasks_data,
+        })
+
+class TaskViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing tasks."""
+    queryset = Task.objects.all().order_by("id")
+    serializer_class = TaskSerializer
+    permission_classes = [IsAuthenticated, IsResponsible]
+
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ["category", "completed"]
+    search_fields = ["description"]
+
+    def get_queryset(self):
+        return Task.objects.filter(responsible=self.request.user)
+
+    def perform_create(self, serializer):
+        declared = list(serializer.validated_data.get("responsible", []))
+        merged = [self.request.user] + [u for u in declared if u != self.request.user]
+        seen = set()
+        unique = []
+        for u in merged:
+            if u.pk not in seen:
+                seen.add(u.pk)
+                unique.append(u)
+
+        category = serializer.validated_data.get("category")
+        if category is None:
+            category, _ = Category.objects.get_or_create(name="Geral")
+
+        serializer.save(responsible=unique, category=category)
+
+class CategoryViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing categories."""
+    queryset = Category.objects.all().order_by("id")
+    serializer_class = CategorySerializer
+    permission_classes = [IsAuthenticated]

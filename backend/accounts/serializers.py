@@ -1,10 +1,12 @@
+from asyncio import Task
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import BaseBackend
 from rest_framework import exceptions, serializers
 
 User = get_user_model()
 
-from .models import User
+from .models import Category, User, Task
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -39,7 +41,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         if data['password'] != data['password_match']:
-            raise serializers.ValidationError({'password_match': 'The passwords do not match.'})
+            raise serializers.ValidationError({'password_match': 'The passwords do not match.'})  # nosec B105
         return data
 
     def create(self, validated_data):
@@ -90,3 +92,31 @@ class LoginSerializer(serializers.Serializer):
         attrs['user'] = user
         return attrs
 
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ["id", "name"]
+
+class TaskSerializer(serializers.ModelSerializer):
+    category = CategorySerializer()
+
+    class Meta:
+        model = Task
+        fields = ["id", "description", "completed", "category"]
+
+class TaskSerializer(serializers.ModelSerializer):
+    responsible = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=User.objects.all(),
+        required=False,
+    )
+    category = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+    completed = serializers.BooleanField(required=False, default=False)
+
+    class Meta:
+        model = Task
+        fields = ["id", "description", "completed", "category", "responsible"]
