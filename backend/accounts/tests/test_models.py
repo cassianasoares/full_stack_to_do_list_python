@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import pytest
 from django.contrib.auth import get_user_model
+from accounts.models import Category, Task
 
 User = get_user_model()
 TEST_PASSWORD = 'senha12345'  # nosec B105
@@ -82,3 +83,20 @@ def test_password_is_hashed_not_stored_in_plain_text():
 
     assert user.password != 'minha_senha_secreta'  # nosec B105
     assert user.password.startswith('pbkdf2_') or user.password.startswith('argon2$')
+
+@pytest.mark.django_db
+def test_category_str():
+    category = Category.objects.create(name="Financeiro")
+    assert str(category) == "Financeiro"
+
+@pytest.mark.django_db
+def test_task_creation_and_str(existing_user):
+    category = Category.objects.create(name="Relatórios")
+    task = Task.objects.create(description="Gerar relatório mensal", completed=False, category=category)
+    task.responsible.add(existing_user)
+
+    assert task.description == "Gerar relatório mensal"
+    assert task.completed is False
+    assert task.category == category
+    assert existing_user in task.responsible.all()
+    assert str(task).startswith("Gerar relatório") 
